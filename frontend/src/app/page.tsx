@@ -1,65 +1,203 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useMemo, useState } from "react";
+import ChatWindow from "../../components/ChatWindow";
+import QueryHistory from "../../components/QueryHistory";
+import ResultsTable from "../../components/ResultsTable";
+import ResultsChart from "../../components/ResultsChart";
+import LoadingState from "../../components/LoadingState";
+import ErrorMessage from "../../components/ErrorMessage";
+import {
+  sendChatMessage,
+  extractResponseData,
+  ChatApiResponse,
+} from "../../lib/api";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  timestamp: string;
+}
+
+function formatTime() {
+  const now = new Date();
+  return now.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+export default function HomePage() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome-message",
+      role: "assistant",
+      text: "Hi! I’m SupaChat. Ask me about your analytics data.",
+      timestamp: "--:--",
+    },
+  ]);
+
+  const [query, setQuery] = useState("");
+  const [history, setHistory] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [latestSql, setLatestSql] = useState("");
+  const [latestType, setLatestType] = useState<string>("text");
+  const [latestData, setLatestData] = useState<Record<string, unknown>[]>([]);
+
+  const suggestions = useMemo(
+    () => [
+      "Show top trending topics in last 30 days",
+      "Compare article engagement by topic",
+      "Plot daily views trend for AI articles",
+      "Show top 5 most viewed articles",
+      "Display monthly engagement summary",
+    ],
+    []
+  );
+
+  const submitQuery = async (input: string) => {
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      text: trimmed,
+      timestamp: formatTime(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setHistory((prev) =>
+      [trimmed, ...prev.filter((q) => q !== trimmed)].slice(0, 10)
+    );
+    setQuery("");
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response: ChatApiResponse = await sendChatMessage(trimmed);
+      const extractedData = extractResponseData(response);
+
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        text: response.reply || "No response received.",
+        timestamp: formatTime(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      setLatestSql(response.sql || "");
+      setLatestType(response.query_type || "text");
+      setLatestData(extractedData);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Something went wrong";
+      setError(errorMessage);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: "I couldn’t process that request. Please check the backend connection and try again.",
+          timestamp: formatTime(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black px-2 text-white">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 lg:grid-cols-12">
+        <aside className="space-y-4 lg:col-span-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <h1 className="text-2xl font-bold">SupaChat</h1>
+            <p className="mt-2 text-sm text-zinc-400">
+              Conversational analytics dashboard
+            </p>
+          </div>
+
+          <QueryHistory history={history} onSelect={submitQuery} />
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <h2 className="mb-3 text-lg font-semibold text-white">
+              Example Queries
+            </h2>
+            <div className="space-y-2">
+              {suggestions.map((item) => (
+                <button
+                  key={item}
+                  onClick={() => submitQuery(item)}
+                  className="w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-left text-sm text-zinc-200 transition hover:border-blue-500 hover:bg-zinc-800"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex flex-col gap-4 lg:col-span-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <h2 className="text-xl font-semibold">Chat</h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Ask analytics questions in natural language
+            </p>
+          </div>
+
+          <ChatWindow messages={messages} />
+
+          {isLoading && <LoadingState />}
+          <ErrorMessage message={error} />
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitQuery(query);
+              }}
+              className="flex flex-col gap-3"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              <textarea
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Ask something like: Show top trending topics in last 30 days"
+                rows={3}
+                className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500"
+              />
+
+              <button
+                type="submit"
+                disabled={isLoading || !query.trim()}
+                className="rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Send Query
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <section className="space-y-4 lg:col-span-4">
+          {latestSql && (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h2 className="mb-3 text-lg font-semibold text-white">
+                Generated SQL
+              </h2>
+              <pre className="overflow-x-auto rounded-xl bg-zinc-950 p-4 text-sm text-emerald-400">
+                <code>{latestSql}</code>
+              </pre>
+            </div>
+          )}
+
+          <ResultsTable data={latestData} />
+          <ResultsChart type={latestType} data={latestData} />
+        </section>
+      </div>
+    </main>
   );
 }
