@@ -20,6 +20,18 @@ interface Message {
   timestamp: string;
 }
 
+function generateId() {
+  if (
+    typeof globalThis !== "undefined" &&
+    globalThis.crypto &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 function formatTime() {
   const now = new Date();
   return now.toLocaleTimeString("en-IN", {
@@ -78,7 +90,7 @@ export default function HomePage() {
     if (!trimmed || isLoading) return;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: "user",
       text: trimmed,
       timestamp: formatTime(),
@@ -97,7 +109,7 @@ export default function HomePage() {
       const extractedData = extractResponseData(response);
 
       const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: "assistant",
         text: response.reply || "No response received.",
         timestamp: formatTime(),
@@ -120,7 +132,7 @@ export default function HomePage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: "assistant",
           text: errorMessage.includes("Unsupported query")
             ? "That query is not supported by the backend yet. Please try one of the example queries."
