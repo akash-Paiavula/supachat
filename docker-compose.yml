@@ -1,9 +1,6 @@
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: supachat-backend:local
+    image: 21e51a6241akash/supachat-backend:latest
     container_name: supachat_backend
     restart: always
     ports:
@@ -46,6 +43,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
     depends_on:
       - backend
       - cadvisor
