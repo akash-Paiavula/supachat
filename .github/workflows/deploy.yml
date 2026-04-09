@@ -5,14 +5,15 @@ on:
     branches:
       - main
 
+env:
+  BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/supachat-backend:latest
+  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/supachat-frontend:latest
+
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -30,26 +31,22 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/supachat-backend:latest
+          tags: ${{ env.BACKEND_IMAGE }}
 
       - name: Build frontend image
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/supachat-frontend:latest
+          tags: ${{ env.FRONTEND_IMAGE }}
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
 
-
   deploy:
-
     runs-on: ubuntu-latest
-
     needs: build
 
     steps:
-
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -58,12 +55,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ${{ secrets.EC2_APP_PATH }}
-
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/supachat-backend:latest
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/supachat-frontend:latest
-
+            docker pull ${{ env.BACKEND_IMAGE }}
+            docker pull ${{ env.FRONTEND_IMAGE }}
             docker compose down
-
             docker compose up -d
-
             docker image prune -f
