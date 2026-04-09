@@ -1,6 +1,9 @@
 services:
   backend:
-    image: 21e51a6241akash/supachat-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: supachat-backend:local
     container_name: supachat_backend
     restart: always
     ports:
