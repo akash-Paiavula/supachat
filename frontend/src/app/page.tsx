@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ChatWindow from "../../components/ChatWindow";
 import QueryHistory from "../../components/QueryHistory";
 import ResultsTable from "../../components/ResultsTable";
@@ -47,13 +47,28 @@ export default function HomePage() {
   const [latestType, setLatestType] = useState<string>("text");
   const [latestData, setLatestData] = useState<Record<string, unknown>[]>([]);
 
+  useEffect(() => {
+    const savedHistory = localStorage.getItem("supachat-query-history");
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch {
+        setHistory([]);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("supachat-query-history", JSON.stringify(history));
+  }, [history]);
+
   const suggestions = useMemo(
     () => [
       "Show top trending topics in last 30 days",
       "Compare article engagement by topic",
       "Plot daily views trend for AI articles",
-      "Show top 5 most viewed articles",
-      "Display monthly engagement summary",
+      "Show top 5 articles by views",
+      "Compare likes by topic",
     ],
     []
   );
@@ -92,9 +107,14 @@ export default function HomePage() {
       setLatestSql(response.sql || "");
       setLatestType(response.query_type || "text");
       setLatestData(extractedData);
+      setError("");
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Something went wrong";
+      let errorMessage = "Something went wrong";
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
       setError(errorMessage);
 
       setMessages((prev) => [
@@ -102,7 +122,9 @@ export default function HomePage() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          text: "I couldn’t process that request. Please check the backend connection and try again.",
+          text: errorMessage.includes("Unsupported query")
+            ? "That query is not supported by the backend yet. Please try one of the example queries."
+            : "I couldn’t process that request. Please check the backend connection and try again.",
           timestamp: formatTime(),
         },
       ]);
@@ -133,7 +155,7 @@ export default function HomePage() {
                 <button
                   key={item}
                   onClick={() => submitQuery(item)}
-                  className="w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-left text-sm text-zinc-200 transition hover:border-blue-500 hover:bg-zinc-800"
+                  className="block w-full whitespace-normal break-words rounded-xl border border-white/10 bg-zinc-900 px-3 py-3 text-left text-sm leading-6 text-zinc-200 transition hover:border-blue-500 hover:bg-zinc-800"
                 >
                   {item}
                 </button>

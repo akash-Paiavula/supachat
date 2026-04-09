@@ -21,7 +21,7 @@ export default function QueryHistory({
             <button
               key={`${item}-${index}`}
               onClick={() => onSelect(item)}
-              className="w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-left text-sm text-zinc-200 transition hover:border-blue-500 hover:bg-zinc-800"
+              className="block w-full whitespace-normal break-words rounded-xl border border-white/10 bg-zinc-900 px-3 py-3 text-left text-sm leading-6 text-zinc-200 transition hover:border-blue-500 hover:bg-zinc-800"
             >
               {item}
             </button>
