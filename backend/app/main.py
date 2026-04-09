@@ -24,7 +24,7 @@ app.add_middleware(
 )
 
 # Prometheus metrics endpoint
-I""" nstrumentator().instrument(app).expose(app, endpoint="/metrics") """
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 class ChatRequest(BaseModel):
